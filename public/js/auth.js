@@ -55,22 +55,48 @@
     loginStatus.textContent = 'Memeriksa kredensial…';
     loginStatus.className = 'status status--info';
 
-    const { data, error } = await client.auth.signInWithPassword({
-      email: loginEmail.value.trim(),
-      password: loginPassword.value,
-    });
+    const emailVal = loginEmail.value.trim();
+    const passwordVal = loginPassword.value;
 
-    if (error) {
-      loginStatus.textContent = 'Email atau password salah, atau akun belum diaktifkan.';
+    // Timeout pengaman: kalau signInWithPassword macet > 8 detik, tampilkan pesan
+    // diagnostik di layar alih-alih membiarkan layar diam tanpa keterangan.
+    const withTimeout = (promise, ms) =>
+      Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT_DIAGNOSTIK: proses macet lebih dari ' + ms + 'ms (kemungkinan terkunci secara internal oleh klien Supabase).')), ms)
+        ),
+      ]);
+
+    try {
+      const { data, error } = await withTimeout(
+        client.auth.signInWithPassword({ email: emailVal, password: passwordVal }),
+        8000
+      );
+
+      if (error) {
+        loginStatus.textContent = 'DIAGNOSTIK — error dari signInWithPassword: ' + (error.message || JSON.stringify(error));
+        loginStatus.className = 'status status--error';
+        loginSubmitBtn.disabled = false;
+        return;
+      }
+
+      if (!data || !data.session) {
+        loginStatus.textContent = 'DIAGNOSTIK — sukses tapi data.session kosong: ' + JSON.stringify(data);
+        loginStatus.className = 'status status--error';
+        loginSubmitBtn.disabled = false;
+        return;
+      }
+
+      loginStatus.textContent = '';
+      loginPassword.value = '';
+      showApp(data.session);
+      loginSubmitBtn.disabled = false;
+    } catch (err) {
+      loginStatus.textContent = 'DIAGNOSTIK — exception tertangkap: ' + (err && err.message ? err.message : String(err));
       loginStatus.className = 'status status--error';
       loginSubmitBtn.disabled = false;
-      return;
     }
-
-    loginStatus.textContent = '';
-    loginPassword.value = '';
-    showApp(data.session);
-    loginSubmitBtn.disabled = false;
   });
 
   logoutBtn.addEventListener('click', async () => {
