@@ -38,6 +38,12 @@ body {
   padding: 20px;
   background: linear-gradient(180deg, var(--navy) 0%, var(--bg) 320px);
 }
+.login-screen[hidden] {
+  display: none !important;
+}
+#app-root[hidden] {
+  display: none !important;
+}
 .login-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
